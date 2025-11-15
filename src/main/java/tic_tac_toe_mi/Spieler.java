@@ -401,6 +401,22 @@ public class Spieler implements ILernenderSpieler {
     }
     
     /**
+     * Speichert das Modell mit Metadaten
+     * @param dateiname Pfad zur Speicherdatei
+     * @param trainingSpiele Anzahl der Trainingsspiele
+     */
+    public void speichereModell(String dateiname, int trainingSpiele) throws IOException {
+        // Erstelle Verzeichnis falls nicht vorhanden
+        File datei = new File(dateiname);
+        File verzeichnis = datei.getParentFile();
+        if (verzeichnis != null && !verzeichnis.exists()) {
+            verzeichnis.mkdirs();
+        }
+        
+        qAgent.speichereModell(dateiname, trainingSpiele);
+    }
+    
+    /**
      * Lädt vorher gespeichertes Wissen
      * Delegiert an QLearningAgent
      * @param dateiname Pfad zur Speicherdatei
@@ -500,6 +516,47 @@ public class Spieler implements ILernenderSpieler {
      */
     public int getAnzahlEpisoden() {
         return episodenHistory.size();
+    }
+    
+    /**
+     * Exportiert das Modell als JSON (für Analyse und Debugging)
+     * Pretty-printed Format, lesbar in jedem Editor
+     * 
+     * @param dateiname Pfad zur JSON-Datei (z.B. "models/model.json")
+     * @param trainingSpiele Anzahl der Trainingsspiele
+     */
+    public void exportiereAlsJSON(String dateiname, int trainingSpiele) {
+        try {
+            // Erstelle Verzeichnis falls nötig
+            File file = new File(dateiname);
+            if (file.getParentFile() != null) {
+                file.getParentFile().mkdirs();
+            }
+            
+            qAgent.speichereAlsJSON(dateiname, trainingSpiele, false); // false = pretty-printed
+            
+            // Zeige Dateiinfo
+            System.out.println("  ✓ JSON exportiert: " + dateiname + " (" + (file.length() / 1024) + " KB)");
+        } catch (IOException e) {
+            System.err.println("Fehler beim JSON-Export: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Lädt ein Modell aus JSON-Datei
+     * 
+     * @param dateiname Pfad zur JSON-Datei
+     * @return true wenn erfolgreich geladen
+     */
+    public boolean ladeVonJSON(String dateiname) {
+        try {
+            qAgent.ladeVonJSON(dateiname);
+            return true;
+        } catch (IOException e) {
+            System.err.println("Fehler beim JSON-Import: " + e.getMessage());
+            return false;
+        }
     }
     
     /**

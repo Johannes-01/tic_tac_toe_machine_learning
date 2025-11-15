@@ -271,6 +271,59 @@ public class QLearningAgent {
         }
     }
     
+    /**
+     * Speichert das Modell als JSON (für Analyse und Debugging)
+     * 
+     * @param dateiname Pfad zur JSON-Datei
+     * @param trainingSpiele Anzahl der Trainingsspiele
+     * @param compact true für kompakte Ausgabe, false für pretty-printed
+     * @throws IOException Bei Schreibfehlern
+     */
+    public void speichereAlsJSON(String dateiname, int trainingSpiele, boolean compact) throws IOException {
+        QLearningModel modell = new QLearningModel(
+            qTabelle, 
+            trainingSpiele,
+            lernrate,
+            discountFaktor,
+            explorationRate
+        );
+        
+        String json = modell.toJSON(compact);
+        
+        try (FileWriter writer = new FileWriter(dateiname)) {
+            writer.write(json);
+        }
+    }
+    
+    /**
+     * Lädt ein Modell aus einer JSON-Datei
+     * 
+     * @param dateiname Pfad zur JSON-Datei
+     * @return Das geladene Modell
+     * @throws IOException Bei Lesefehlern
+     */
+    public QLearningModel ladeVonJSON(String dateiname) throws IOException {
+        StringBuilder json = new StringBuilder();
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(dateiname))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                json.append(line).append("\n");
+            }
+        }
+        
+        QLearningModel modell = QLearningModel.fromJSON(json.toString());
+        this.qTabelle = modell.getQTabelle();
+        this.lernrate = modell.getLernrate();
+        this.discountFaktor = modell.getDiscountFaktor();
+        this.explorationRate = modell.getExplorationRate();
+        
+        System.out.println("JSON-Modell geladen:");
+        System.out.println(modell);
+        
+        return modell;
+    }
+    
     // ========================================================================
     // Getter und Setter
     // ========================================================================
