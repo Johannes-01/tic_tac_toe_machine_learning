@@ -33,7 +33,7 @@ public class NNDemo {
         private final double epsilonDecay = 0.995;
         private final double learningRate = 0.001;
         
-        SimpleNNTrainer() {
+        public SimpleNNTrainer() {
             this.nn = new NeuralNetwork(42);
             this.replay = new ExperienceReplay(10000, 43);
         }
@@ -41,7 +41,7 @@ public class NNDemo {
         /**
          * Konvertiert Spielfeld zu NN-Input.
          */
-        double[] toState(Spielfeld feld, Farbe meineFarbe) {
+        public double[] toState(Spielfeld feld, Farbe meineFarbe) {
             double[] state = new double[9];
             for (int z = 0; z < 3; z++) {
                 for (int s = 0; s < 3; s++) {
@@ -58,7 +58,7 @@ public class NNDemo {
         /**
          * Wählt beste Aktion (ε-greedy).
          */
-        Zug selectAction(Spielfeld feld, Farbe farbe, boolean explore) {
+        public Zug selectAction(Spielfeld feld, Farbe farbe, boolean explore) {
             double[] state = toState(feld, farbe);
             List<Zug> legal = getLegalMoves(feld);
             
@@ -84,7 +84,7 @@ public class NNDemo {
         /**
          * Trainiert NN auf einem Batch.
          */
-        void trainBatch() {
+        public void trainBatch() {
             if (!replay.canSample(32)) return;
             
             ExperienceReplay.Experience[] batch = replay.sample(32);
@@ -110,7 +110,7 @@ public class NNDemo {
         /**
          * Trainiert gegen sich selbst.
          */
-        void trainSelfPlay(int episodes) {
+        public void trainSelfPlay(int episodes) {
             System.out.println("╔══════════════════════════════════════════════════╗");
             System.out.println("║  Neural Network Training (Self-Play)            ║");
             System.out.println("╚══════════════════════════════════════════════════╝");
@@ -164,7 +164,7 @@ public class NNDemo {
         /**
          * Testet gegen Zufallsspieler.
          */
-        int[] testVsRandom(int games) {
+        public int[] testVsRandom(int games) {
             int wins = 0, losses = 0, draws = 0;
             
             for (int g = 0; g < games; g++) {
@@ -193,7 +193,7 @@ public class NNDemo {
         }
         
         // Helper methods
-        List<Zug> getLegalMoves(Spielfeld feld) {
+        public List<Zug> getLegalMoves(Spielfeld feld) {
             List<Zug> moves = new ArrayList<>();
             for (int z = 0; z < 3; z++) {
                 for (int s = 0; s < 3; s++) {
