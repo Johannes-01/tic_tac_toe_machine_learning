@@ -1,0 +1,653 @@
+\newpage
+
+\chapter{Einleitung}
+
+Im Rahmen der modernen \ac{BI} gewinnt die systematische Analyse elektronischer Daten zur Gewinnung von Erkenntnissen für operative und strategische Entscheidungen stetig an Bedeutung. Die vorliegende Ausarbeitung behandelt zwei unterschiedliche Teilgebiete des Maschinellen Lernens: den Prozess des Data Minings sowie das Prinzip des bestärkenden Lernens (Reinforcement Learning).
+
+Die erste Aufgabenstellung adressiert die Betrugserkennung im Online-Handel, einem Bereich, in dem die Regel ``Ware gegen Geld'' oft nicht direkt umsetzbar ist und Händler daher betrügerische Bestellungen frühzeitig identifizieren müssen. Ziel ist es, durch den Einsatz von Klassifikationsverfahren Muster in einem Bestand von 30.000 Datensätzen zu finden, um die Zielvariable ``TARGET\_BETRUG'' präzise vorherzusagen.
+
+In der zweiten Aufgabenstellung wird die Entwicklung eines selbstlernenden Programms für das Spiel Tic-Tac-Toe beschrieben. Im Gegensatz zum überwachten Lernen basiert dieser Ansatz auf dem Lernen aus Erfahrung, bei dem ein Agent durch ein Belohnungssystem eigenständig eine optimale Strategie entwickelt, ohne auf vordefinierte Regeln oder Spielbäume zurückzugreifen.
+
+Diese Ausarbeitung dokumentiert die methodische Vorgehensweise, die technische Umsetzung sowie die abschließende Evaluation der Ergebnisse für beide Themenfelder.
+
+
+\chapter{Aufgabe Data Mining: Betrugserkennung}
+
+\section{Problembeschreibung und Datenanalyse}
+
+Die Regel "Ware gegen Geld" ist im Online-Handel, wie im 
+ganzen Versandhandelsgeschäft, im direkten 1:1 Verhältnis nicht umsetzbar, mit Ausnahme 
+des Nachnahmeversands. Die Nachnahme als einzige Zahlungsmethode anzubieten und 
+damit ein recht betrugssicheres Online-Geschäft zu betreiben, ist jedoch für das ansonsten 
+sehr flexible Online-Geschäft eher hinderlich. Um vorhersagen zu können, ob es sich bei einer Bestellung um einen zahlungswilligen Kunden handelt, sollte Data Mining verwendet werden.
+
+Anhand der 30.000 Trainingsdatensätze soll ein Data Mining Modell trainiert werden, das den Betrug für 20.000 weitere Klassifizierungsdatensätze vorhersagt. Dabei können die Arbeitsschritte mit entsprechenden Schritten der Crisp-DM Methodik verglichen werden.
+
+Dazu sollten die Trainingsdaten zunächst auf Umstände analysiert werden, die das Data Mining erschweren könnten. Dies ist mit dem Schritt des Data Understanding gleichzusetzen.
+Anschließend sollten spezifisch die Spalten ´ANUMMER\_01´ bis ´ANUMMER\_10´ analysiert werden. (TODO crisp)
+Schließlich sollte das Training mit drei unterschiedlichen und für die Problemstellung geeigneten Verfahren durchgeführt werden, während 20\% der Trainingsdaten für den Test zurückbehalten werden sollten.
+Mit dem am besten geeigneten Verfahren sollten letztlich die Vorhersagen für die Klassifizierungsdaten erzeugt werden.
+
+
+%Untersuchung der Trainingsdaten (Teilaufgabe a) und Erläuterung der Attributdarstellung der Artikelnummern (Teilaufgabe b).
+
+\subsection{Untersuchung der Trainingsdaten (Teilaufgabe a)}
+
+Die bereitgestellten Trainingsdaten umfassen 30.000 Datensätze mit insgesamt 43 Attributen, 
+die verschiedene Merkmale von Online-Bestellungen beschreiben. Das Zielattribut 
+\texttt{TARGET\_BETRUG} kennzeichnet, ob eine Bestellung als Betrug klassifiziert wurde.
+
+Die Analyse der Klassenverteilung zeigt eine stark unausgewogene Verteilung:
+\begin{itemize}
+    \item Betrugsfälle (\texttt{TARGET\_BETRUG = ja}): 1.746 Datensätze (5,82\%)
+    \item Legitime Bestellungen (\texttt{TARGET\_BETRUG = nein}): 28.254 Datensätze (94,18\%)
+\end{itemize}
+
+Diese Imbalance stellt eine zentrale Herausforderung für das maschinelle Lernen dar. 
+Ein naives Modell, das ausschließlich \glqq nein\grqq{} vorhersagt, würde bereits eine 
+Genauigkeit von über 94\% erreichen, ohne dabei einen einzigen Betrugsfall zu erkennen. 
+Daher sind klassische Metriken wie die Accuracy allein nicht aussagekräftig. 
+Stattdessen müssen Metriken wie Precision und Recall zur Bewertung 
+herangezogen werden, die die Erkennungsrate der Minderheitsklasse berücksichtigen.
+
+\subsection{Attributdarstellung der Artikelnummern (Teilaufgabe b)}
+
+Die Attribute \texttt{ANUMMER\_01} bis \texttt{ANUMMER\_10} repräsentieren die 
+Artikelnummern der bestellten Produkte. Diese Darstellung weist mehrere Problematiken auf:
+
+\begin{enumerate}
+    \item \textbf{Limitierung auf zehn Artikel:} Bei Bestellungen mit mehr als zehn 
+    Artikeln werden nicht alle Artikelnummern erfasst, was zu Informationsverlust führt.
+    
+    \item \textbf{Sparse Data:} Die Felder \texttt{ANUMMER\_02} bis \texttt{ANUMMER\_10} 
+    sind größtenteils mit \texttt{NULL}-Werten gefüllt, da die Mehrheit der Bestellungen 
+    weniger als zehn Artikel umfasst. Diese hohe Sparsity kann die Modellperformance 
+    negativ beeinflussen.
+    
+    \item \textbf{Kategoriale Hochdimensionalität:} Artikelnummern sind kategoriale 
+    Variablen mit potenziell sehr vielen unterschiedlichen Ausprägungen, was die 
+    Verarbeitung durch Machine-Learning-Algorithmen erschwert.
+\end{enumerate}
+
+Alternative Ansätze zur Verbesserung wären die Aggregation zu einer Gesamtanzahl 
+bestellter Artikel (bereits vorhanden als \texttt{ANZ\_BEST}) oder die Kategorisierung 
+der Artikelnummern in Produktgruppen.
+
+\section{Methodik und Modellierung}
+
+\subsection{Datenaufteilung (Holdout-Methode)}
+
+Für die Modellierung wurde die Holdout-Methode angewandt, bei der die verfügbaren 
+Daten in eine Trainings- und eine Testmenge aufgeteilt werden. Die Aufteilung erfolgte 
+im Verhältnis 80:20:
+\begin{itemize}
+    \item \textbf{Trainingsdaten:} 24.000 Datensätze (80\%) zur Modellerstellung
+    \item \textbf{Testdaten:} 6.000 Datensätze (20\%) zur unabhängigen Evaluation
+\end{itemize}
+
+Diese Methode ermöglicht eine realistische Einschätzung der Generalisierungsfähigkeit 
+der trainierten Modelle auf unbekannten Daten.
+
+\subsection{Gewählte Klassifikationsverfahren}
+
+Zur Lösung des Klassifikationsproblems wurden drei unterschiedliche Verfahren 
+in KNIME implementiert und verglichen:
+
+\subsubsection{Decision Tree (Entscheidungsbaum)}
+Der Entscheidungsbaum wurde mit dem \textit{Gini-Index} als Qualitätsmaß für die 
+Splitkriterien konfiguriert. Entscheidungsbäume erzeugen interpretierbare Regeln 
+und können sowohl kategoriale als auch numerische Attribute verarbeiten. 
+Sie neigen jedoch zur Überanpassung (Overfitting) bei komplexen Datenstrukturen.
+
+\subsubsection{Logistische Regression}
+Die logistische Regression modelliert die Wahrscheinlichkeit der Klassenzugehörigkeit 
+mittels einer Sigmoidfunktion. Das Verfahren eignet sich besonders für binäre 
+Klassifikationsprobleme und liefert probabilistische Vorhersagen. Bei stark 
+unbalancierten Daten kann die logistische Regression jedoch dazu tendieren, 
+ausschließlich die Mehrheitsklasse vorherzusagen.
+
+\subsubsection{Naive Bayes}
+Der Naive-Bayes-Klassifikator basiert auf dem Satz von Bayes und der vereinfachenden 
+Annahme der bedingten Unabhängigkeit aller Attribute. Trotz dieser oft unrealistischen 
+Annahme liefert das Verfahren in der Praxis häufig gute Ergebnisse und ist 
+besonders effizient bei hochdimensionalen Daten.
+
+\section{Evaluation und Ergebnisse}
+
+\subsection{Konfusionsmatrizen}
+
+Die Evaluation der drei Modelle auf den Testdaten (6.000 Datensätze) lieferte 
+folgende Konfusionsmatrizen:
+
+\subsubsection{Decision Tree}
+\begin{table}[H]
+\centering
+\begin{tabular}{l|cc}
+\textbf{Tatsächlich / Vorhersage} & \textbf{nein} & \textbf{ja} \\
+\hline
+nein & 5.466 & 193 \\
+ja & 300 & 36 \\
+\end{tabular}
+\caption{Konfusionsmatrix Decision Tree}
+\end{table}
+
+\subsubsection{Logistische Regression}
+\begin{table}[h]
+\centering
+\begin{tabular}{l|cc}
+\textbf{Tatsächlich / Vorhersage} & \textbf{nein} & \textbf{ja} \\
+\hline
+nein & 5.666 & 0 \\
+ja & 336 & 0 \\
+\end{tabular}
+\caption{Konfusionsmatrix Logistische Regression}
+\end{table}
+
+\subsubsection{Naive Bayes}
+\begin{table}[h]
+\centering
+\begin{tabular}{l|cc}
+\textbf{Tatsächlich / Vorhersage} & \textbf{nein} & \textbf{ja} \\
+\hline
+nein & 5.663 & 3 \\
+ja & 333 & 3 \\
+\end{tabular}
+\caption{Konfusionsmatrix Naive Bayes}
+\end{table}
+
+\subsection{Kennzahlen und Interpretation}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|ccc}
+\textbf{Modell} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} \\
+\hline
+Decision Tree & 91,78\% & 15,72\% & 10,71\% \\
+Logistische Regression & 94,40\% & 0,00\% & 0,00\% \\
+Naive Bayes & 94,44\% & 50,00\% & 0,89\% \\
+\end{tabular}
+\caption{Vergleich der Evaluationsmetriken}
+\end{table}
+
+\subsection{Stellungnahme zur Modellgüte}
+
+Die Ergebnisse verdeutlichen das \textit{Accuracy Paradox} bei unbalancierten Datensätzen:
+
+\textbf{Logistische Regression} erzielt mit 94,40\% die zweithöchste Accuracy, 
+klassifiziert jedoch keinen einzigen Betrugsfall korrekt (Recall = 0\%). 
+Das Modell hat ausschließlich gelernt, \glqq nein\grqq{} vorherzusagen.
+
+\textbf{Naive Bayes} zeigt ein ähnliches Verhalten mit nur drei korrekt erkannten 
+Betrugsfällen. Die hohe Precision von 50\% ist aufgrund der geringen Fallzahl 
+statistisch nicht aussagekräftig.
+
+\textbf{Decision Tree} liefert trotz niedrigerer Accuracy (91,78\%) das beste 
+Ergebnis für die praktische Anwendung: Mit 36 korrekt erkannten Betrugsfällen 
+(Recall = 10,71\%) ist er der einzige Klassifikator, der die Minderheitsklasse 
+in nennenswertem Umfang identifiziert.
+
+Für eine Betrugserkennungsanwendung ist der Recall die entscheidende Metrik, 
+da nicht erkannte Betrugsfälle (False Negatives) direkte finanzielle Schäden 
+verursachen. Der Decision Tree ist daher trotz seiner Schwächen das geeignetste 
+der drei getesteten Modelle.
+
+\section{Modell-Anwendung und Dokumentation}
+
+\subsection{Auswahl des finalen Modells}
+
+Basierend auf der Evaluation wurde der \textbf{Decision Tree} als finales Modell 
+ausgewählt. Die Entscheidung begründet sich wie folgt:
+
+\begin{itemize}
+    \item \textbf{Höchster Recall:} Mit 10,71\% erkennt der Decision Tree deutlich 
+    mehr Betrugsfälle als die Alternativmodelle.
+    \item \textbf{Interpretierbarkeit:} Die generierten Entscheidungsregeln können 
+    von Fachexperten nachvollzogen und validiert werden.
+    \item \textbf{Balance zwischen Precision und Recall:} Obwohl die Precision mit 
+    15,72\% niedrig ist, stellt sie einen akzeptablen Kompromiss dar, wenn 
+    Fehlalarme (False Positives) manuell überprüft werden können.
+\end{itemize}
+
+\subsection{Vorhersage der Klassifizierungsdaten}
+
+Das trainierte Decision-Tree-Modell wurde auf die 20.000 Klassifizierungsdatensätze 
+angewandt. Die resultierenden Vorhersagen wurden in der Datei 
+\newline\texttt{Klassifizierungsdaten-tree-predictions.csv} gespeichert.
+
+Der Workflow in KNIME umfasste folgende Schritte:
+\begin{enumerate}
+    \item Laden der Klassifizierungsdaten (CSV Reader)
+    \item Anwendung des trainierten Modells (Decision Tree Predictor)
+    \item Export der Vorhersagen (CSV Writer)
+\end{enumerate}
+
+\subsection{Prozess-Screenshots}
+
+[Hier Screenshots des KNIME-Workflows einfügen]
+
+\begin{figure}[h]
+\centering
+% \includegraphics[width=0.9\textwidth]{knime_workflow.png}
+\caption{KNIME-Workflow für Training und Klassifikation}
+\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% KAPITEL 3: BESTÄRKENDES LERNEN (TIC-TAC-TOE)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Aufgabe Bestärkendes Lernen (Tic-Tac-Toe)}
+
+\section{Problembeschreibung und Komplexität}
+
+Tic-Tac-Toe ist ein klassisches Zwei-Personen-Strategiespiel auf einem $3 \times 3$ Spielfeld. Zwei Spieler setzen abwechselnd ihre Symbole (X und O), wobei X stets beginnt. Gewonnen hat, wer zuerst drei gleiche Symbole in einer Reihe platziert -- horizontal, vertikal oder diagonal. Sind alle neun Felder belegt ohne Sieger, endet das Spiel unentschieden.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+    Spielfeld            Gewinnlinien (8 mögliche)
+                    
+   0 | 1 | 2            =========  ---------  ---------
+  ---+---+---             Zeile 0    Zeile 1    Zeile 2
+   3 | 4 | 5            
+  ---+---+---              |          |          |
+   6 | 7 | 8            Spalte 0  Spalte 1  Spalte 2
+                    
+                           \          /
+                        Diagonale  Antidiagonale
+\end{verbatim}
+\caption{Spielfeld und Gewinnlinien bei Tic-Tac-Toe}
+\end{figure}
+
+Das Spiel ist ein \textbf{deterministisches Nullsummenspiel} mit \textbf{perfekter Information}: Der Gewinn des einen Spielers entspricht exakt dem Verlust des anderen, und beide kennen jederzeit den vollständigen Spielzustand.
+
+Die Komplexität des Spiels lässt sich aus verschiedenen Perspektiven betrachten. Die naive obere Grenze ergibt sich aus $3^9 = 19.683$ möglichen Feldbelegungen, da jedes der neun Felder drei Zustände annehmen kann (leer, X oder O). Nach Eliminierung ungültiger Zustände -- etwa wenn mehr O als X auf dem Feld stehen oder nach einem bereits entschiedenen Spiel weiter gezogen wird -- verbleiben exakt \textbf{6.046 gültige Brettzustände}. Berücksichtigt man zusätzlich die acht Symmetrien des Spielfelds (vier Rotationen und zwei Spiegelungen), reduziert sich dieser Wert auf 765 kanonische Positionen. Die Anzahl aller möglichen Spielverläufe vom Start bis zum Ende beträgt 255.168.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|l}
+\textbf{Perspektive} & \textbf{Anzahl} & \textbf{Relevanz} \\
+\hline
+Alle Kombinationen ($3^9$) & 19.683 & Obere Grenze \\
+Gültige Brettzustände & 6.046 & \textbf{State Space für Q-Tabelle} \\
+Kanonische Positionen & 765 & Mit Symmetrie-Reduktion \\
+Spielverläufe (Game Tree) & 255.168 & Kombinatorische Komplexität \\
+\end{tabular}
+\caption{State Space Hierarchie bei Tic-Tac-Toe}
+\end{table}
+
+Für das maschinelle Lernen ist primär die Zahl 6.046 relevant, da diese den State Space für eine Q-Tabelle definiert. Diese vergleichsweise geringe Größe macht Tic-Tac-Toe zu einem idealen Lernbeispiel: Eine vollständige Q-Tabelle benötigt nur etwa 400-500 KB Speicher, das Training dauert wenige Sekunden und perfektes Spiel ist theoretisch erreichbar.
+
+
+\section{Theoretische Grundlagen}
+
+\subsection{Reinforcement Learning}
+
+\ac{RL} ist ein Paradigma des maschinellen Lernens, bei dem ein \textbf{Agent} durch Interaktion mit einer \textbf{Umgebung} lernt. Der Agent beobachtet den aktuellen \textbf{Zustand (State)}, führt eine \textbf{Aktion} aus und erhält daraufhin eine \textbf{Belohnung (Reward)} sowie den neuen Zustand. Durch wiederholte Interaktion lernt der Agent eine \textbf{Policy} (Strategie), die den kumulativen Reward maximiert.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+                    RL-Interaktionszyklus
+                    
+        +-------------------------------------------+
+        |                                           |
+        |    +-----------+      Aktion a_t         |
+        |    |           | -------------------->   |
+        |    |   Agent   |                         |
+        |    |           | <--------------------   |
+        |    +-----------+   State s_t+1           |
+        |         ^          Reward r_t            |
+        |         |                                |
+        |    beobachtet                            |
+        |    & lernt                               |
+        |         |          +--------------+      |
+        |         +----------| Umgebung     |      |
+        |                    | (Spielfeld)  |      |
+        |                    +--------------+      |
+        +-------------------------------------------+
+\end{verbatim}
+\caption{\ac{RL}-Interaktionszyklus zwischen Agent und Umgebung}
+\end{figure}
+
+Tic-Tac-Toe lässt sich als \textbf{\ac{MDP}} formalisieren, definiert durch das Tupel $(S, A, P, R, \gamma)$:
+\begin{itemize}
+    \item $S$: Zustandsraum (6.046 gültige Spielfeldkonfigurationen)
+    \item $A$: Aktionsraum (bis zu neun mögliche Züge je nach Spielsituation)
+    \item $P$: Übergangswahrscheinlichkeit (deterministisch -- jeder Zug führt zu genau einem Folgezustand)
+    \item $R$: Belohnungsfunktion
+    \item $\gamma$: Diskontierungsfaktor
+\end{itemize}
+
+\subsection{Q-Learning}
+
+Q-Learning ist ein \textbf{model-free, off-policy} \ac{RL}-Algorithmus. \glqq Model-free\grqq{} bedeutet, dass keine Kenntnis der Übergangswahrscheinlichkeiten nötig ist -- der Agent lernt ausschließlich durch Erfahrung. \glqq Off-policy\grqq{} heißt, dass der Agent aus Erfahrungen lernt, die nicht unbedingt der aktuellen Strategie entsprechen.
+
+Der Kern des Algorithmus ist die \textbf{Q-Funktion} $Q(s, a)$, die den erwarteten kumulativen Reward schätzt, wenn im Zustand $s$ die Aktion $a$ ausgeführt und danach optimal gespielt wird. Die Q-Werte werden iterativ durch die \textbf{Bellman Update-Regel} aktualisiert:
+
+\begin{equation}
+Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]
+\end{equation}
+
+Diese Formel beschreibt: Der neue Q-Wert ergibt sich aus dem alten plus einer Korrektur. Die Korrektur entspricht der Differenz zwischen dem tatsächlich erhaltenen Reward $r$ plus dem diskontierten maximalen zukünftigen Q-Wert einerseits und dem aktuellen Q-Wert andererseits. Die \textbf{Lernrate} $\alpha$ (typisch 0.1-0.3) bestimmt, wie stark neue Erfahrungen alte überschreiben -- ein hoher Wert führt zu schnellem, aber potenziell instabilem Lernen. Der \textbf{Diskontierungsfaktor} $\gamma$ (typisch 0.9-0.99) gewichtet zukünftige Belohnungen gegenüber unmittelbaren -- ein Wert nahe 1 bedeutet, dass der Agent langfristig plant.
+
+Ein zentrales Problem im \ac{RL} ist das Dilemma zwischen \textbf{Exploration und Exploitation}: Soll der Agent bekanntes Wissen nutzen (Exploitation) oder neue Strategien ausprobieren (Exploration)? Die \textbf{Epsilon-Greedy Strategie} löst dies, indem mit Wahrscheinlichkeit $\epsilon$ eine zufällige Aktion gewählt wird und mit $1-\epsilon$ die nach Q-Werten beste.
+
+\subsection{Neuronale Netze im \ac{RL}-Kontext}
+
+Die Aufgabenstellung empfiehlt den Einsatz neuronaler Netze und fordert eine Erläuterung, wann dieser sinnvoll ist. In diesem Abschnitt wird zunächst die Theorie erläutert und anschließend begründet, warum für Tic-Tac-Toe eine tabellarische Q-Funktion gewählt wurde.
+
+\subsubsection{\ac{DQN} -- Theorie}
+
+Neuronale Netze können die Q-Funktion approximieren: $Q(s, a; \theta) \approx Q^*(s, a)$, wobei $\theta$ die trainierbaren Gewichte darstellt. Anstatt jeden Zustand einzeln in einer Tabelle zu speichern, lernt das Netzwerk eine Funktion, die für beliebige Eingabezustände Q-Werte berechnet. Diese Architektur wird als \textbf{\ac{DQN}} bezeichnet.
+
+\textbf{Wann ist der Einsatz sinnvoll?}
+\begin{itemize}
+    \item \textbf{Großer State Space:} Bei Spielen wie Schach ($10^{43}$ Zustände) oder Go ($10^{170}$ Zustände) ist eine vollständige Q-Tabelle nicht speicherbar -- hier ist Funktionsapproximation zwingend erforderlich.
+    \item \textbf{Kontinuierliche Zustände:} Bei Robotersteuerung oder autonomem Fahren sind Zustände keine diskreten Werte, sondern kontinuierliche Sensorwerte (Winkel, Geschwindigkeit, Pixelwerte).
+    \item \textbf{Generalisierung:} Neuronale Netze können von ähnlichen Zuständen lernen -- ein Schachbrett mit leicht verschobenen Figuren sollte ähnlich bewertet werden.
+\end{itemize}
+
+\subsubsection{Implementierung und empirischer Vergleich}
+
+Um die Empfehlung der Aufgabenstellung zu evaluieren, wurde zusätzlich zur tabellarischen Q-Funktion ein \textbf{vollständiges neuronales Netz in Pure Java} implementiert (ohne externe Bibliotheken). Die Architektur umfasst:
+
+\begin{itemize}
+    \item \texttt{NeuralNetwork.java}: Multi-Layer Perceptron (9 $\rightarrow$ 128 $\rightarrow$ 64 $\rightarrow$ 9), 10.121 Parameter
+    \item \texttt{Matrix.java}: Matrix-Vektor Operationen, Xavier-Initialisierung
+    \item \texttt{ActivationFunction.java}: ReLU, Sigmoid, Tanh, Linear mit Ableitungen
+    \item \texttt{Layer.java}: Forward- und Backward-Pass (Backpropagation)
+    \item \texttt{ExperienceReplay.java}: \ac{DQN}-typischer Replay Buffer
+\end{itemize}
+
+\textbf{Benchmark-Ergebnisse:}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|r}
+\textbf{Metrik} & \textbf{Q-Tabelle} & \textbf{Neural Network} & \textbf{Verhältnis} \\
+\hline
+Trainingszeit & 0,18s & 14,63s & 81$\times$ langsamer \\
+Episoden & 100.000 & 10.000 & 10$\times$ weniger \\
+Siegrate & 96,7\% & 78,7\% & NN schlechter \\
+Geschwindigkeit & 558.654 Ep./s & 684 Ep./s & 817$\times$ langsamer \\
+Code-Komplexität & $\sim$500 \ac{LOC} & $\sim$1.140 \ac{LOC} & 2,3$\times$ mehr \\
+Interpretierbarkeit & \checkmark{} (JSON) & $\times$ (Black Box) & -- \\
+\end{tabular}
+\caption{Empirischer Vergleich: Q-Tabelle vs. Neuronales Netz}
+\end{table}
+
+\subsubsection{Begründung der Designentscheidung}
+
+Obwohl die Aufgabenstellung neuronale Netze empfiehlt, zeigt der empirische Vergleich eindeutig, dass für Tic-Tac-Toe die \textbf{tabellarische Q-Funktion die bessere Wahl} ist:
+
+\begin{enumerate}
+    \item \textbf{State Space ist klein:} Mit nur 6.046 gültigen Zuständen ist eine vollständige Q-Tabelle problemlos speicherbar ($\sim$400 KB). Neuronale Netze entfalten ihren Vorteil erst bei State Spaces, die zu groß für Tabellen sind.
+    
+    \item \textbf{81-fach schnelleres Training:} Die Q-Tabelle erreicht bessere Ergebnisse in einem Bruchteil der Zeit, da keine Matrixmultiplikationen und kein Backpropagation nötig sind.
+    
+    \item \textbf{Höhere Siegrate:} 96,7\% vs. 78,7\% -- die Q-Tabelle kann jeden Zustand exakt speichern, während das NN nur approximiert und dabei Information verliert.
+    
+    \item \textbf{Kein Hyperparameter-Tuning:} Neuronale Netze erfordern sorgfältige Abstimmung von Lernrate, Netzwerkarchitektur, Batch-Größe etc. Q-Learning ist robuster.
+    
+    \item \textbf{Interpretierbarkeit:} Die Q-Tabelle kann als JSON exportiert und inspiziert werden -- welche Züge werden in welchen Situationen bevorzugt? Ein NN ist eine Black Box.
+\end{enumerate}
+
+\textbf{Fazit:} Die Empfehlung der Aufgabenstellung ist für größere Probleme korrekt, aber für Tic-Tac-Toe gilt das Prinzip \glqq Keep It Simple\grqq{}. Ein neuronales Netz wurde implementiert und getestet, aber bewusst nicht als finale Lösung gewählt.
+
+\subsection{Belohnungsstruktur}
+
+Die gewählte Reward-Funktion ist einfach strukturiert:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r}
+\textbf{Ereignis} & \textbf{Reward} \\
+\hline
+Sieg & $+1.0$ \\
+Niederlage & $-1.0$ \\
+Unentschieden & $0.0$ \\
+Zwischenzug & $0.0$ \\
+\end{tabular}
+\caption{Belohnungsstruktur für Tic-Tac-Toe}
+\end{table}
+
+Diese \textbf{\glqq sparse reward\grqq{}-Struktur} -- Belohnung nur am Spielende -- funktioniert durch den Diskontierungsfaktor, der den Wert rückwärts durch die Zugsequenz propagiert: Ein Zug, der zum Sieg führt, erhält durch wiederholtes Training einen hohen Q-Wert, auch wenn der Reward erst später erfolgt.
+
+
+\section{Lösungsarchitektur und Implementierung}
+
+\subsection{Bereitgestellte Komponenten}
+
+Als Grundlage für die Implementierung wurde von der Hochschule die Bibliothek \texttt{tic\_tac\_toe.jar} bereitgestellt. Diese enthält die grundlegende Spielinfrastruktur und definiert die zu implementierenden Schnittstellen:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|l}
+\textbf{Klasse/Interface} & \textbf{Beschreibung} \\
+\hline
+\multicolumn{2}{l}{\textit{Package tictactoe.*}} \\
+\texttt{Spielfeld} & Repräsentiert das 3$\times$3 Spielbrett \\
+\texttt{Zug} & Ein Spielzug (Zeile, Spalte) \\
+\texttt{Farbe} & Enum: KREIS oder KREUZ \\
+\texttt{Spielstand} & Ergebnis eines Spiels \\
+\texttt{TicTacToe} & Spiellogik und Regelprüfung \\
+\texttt{Wettkampf} & Testumgebung für Spieler-Evaluation \\
+\hline
+\multicolumn{2}{l}{\textit{Package tictactoe.spieler.*}} \\
+\texttt{ISpieler} & Interface für alle Spieler \\
+\texttt{ILernenderSpieler} & Erweitertes Interface für RL-Spieler \\
+\texttt{Zufallsspieler} & Beispiel-Gegner für Tests \\
+\end{tabular}
+\caption{Bereitgestellte Klassen aus tic\_tac\_toe.jar}
+\end{table}
+
+Das Interface \texttt{ILernenderSpieler} schreibt die Methoden \texttt{neuesSpiel(Farbe, int)} und \texttt{berechneZug(Zug, long, long)} vor, die von der eigenen Implementierung überschrieben werden müssen.
+
+\subsection{Architekturübersicht (Eigenentwicklung)}
+
+Die eigene Implementierung folgt dem \textbf{\ac{SRP}} sowie dem \textbf{Facade Pattern}. Das \ac{SRP} besagt, dass jede Klasse genau eine Verantwortlichkeit haben soll, was Wartbarkeit und Testbarkeit verbessert. Das Facade Pattern stellt eine vereinfachte Schnittstelle zu einem komplexen Subsystem bereit.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+Eigenentwickelte Klassen:
+
++--------------------------------------------------------+
+|                      Spieler                            |
+|        (Facade - Implementiert ILernenderSpieler)       |
+|  Orchestriert alle Komponenten, verwaltet Spielfeld     |
++----------------------------+---------------------------+
+                             | verwendet
+                             v
++--------------------------------------------------------+
+|                   QLearningAgent                        |
+|   Q-Tabelle, Bellman-Update, Epsilon-Greedy-Auswahl     |
++----------------------------+---------------------------+
+                             | verwendet
+          +------------------+------------------+
+          v                                     v
++----------------------+          +------------------------+
+| SpielzustandKonverter|          |  SpielzustandAnalyzer  |
+| Spielfeld -> String  |          |  Spielende, Reward,    |
+| für Q-Tabelle        |          |  mögliche Züge         |
++----------------------+          +------------------------+
+\end{verbatim}
+\caption{Klassendiagramm der Eigenentwicklung}
+\end{figure}
+
+Die \texttt{Spieler}-Klasse implementiert das Interface \texttt{ILernenderSpieler} und dient als Fassade. Sie verwaltet das interne Spielfeld, delegiert die Zugauswahl an den \texttt{QLearningAgent} und koordiniert den Trainingsablauf. Der \texttt{QLearningAgent} enthält die Q-Tabelle als HashMap, die Spielzustände (Strings) auf Arrays mit neun Q-Werten abbildet -- einen pro möglichem Feld. Der \texttt{SpielzustandKonverter} transformiert ein Spielfeld in eine normalisierte String-Repräsentation (z.B. \glqq X..O.X...\grqq{}), wobei stets die eigene Farbe als X und die gegnerische als O kodiert wird. Der \texttt{SpielzustandAnalyzer} prüft Gewinnbedingungen, berechnet Rewards und ermittelt gültige Züge.
+
+\subsection{Lernalgorithmus im Code}
+
+Der zentrale Lernmechanismus ist in der Methode \texttt{lernen()} implementiert:
+
+\begin{lstlisting}[language=Java, caption={Q-Learning Update-Methode}]
+public void lernen(String state, int aktion, double reward, 
+                   String naechsterState, boolean istTerminal) {
+    double[] qWerte = getQWerte(state);
+    double alterQWert = qWerte[aktion];
+    
+    double neuerQWert;
+    if (istTerminal) {
+        // Bei Spielende: Nur direkten Reward verwenden
+        neuerQWert = alterQWert + lernrate * (reward - alterQWert);
+    } else {
+        // Waehrend des Spiels: Zukuenftigen Wert einbeziehen
+        double maxNaechsterQ = getMaxQWert(naechsterState);
+        neuerQWert = alterQWert + lernrate * 
+            (reward + discountFaktor * maxNaechsterQ - alterQWert);
+    }
+    qWerte[aktion] = neuerQWert;
+}
+\end{lstlisting}
+
+\subsection{Trainingsablauf}
+
+Das Training erfolgt in einem Loop über 100.000 Episoden. Jede Episode startet mit leerem Spielfeld. Agent und Gegner (Zufallsspieler) ziehen abwechselnd, wobei der Agent per Epsilon-Greedy wählt. Nach jedem Zug wird ein Tupel (Zustand, Aktion, Reward, Folgezustand) gespeichert. Am Spielende werden die Q-Werte aller Züge rückwärts aktualisiert, wodurch der Endreward durch die gesamte Zugsequenz propagiert wird.
+
+Die optimalen \textbf{Hyperparameter} nach empirischer Evaluation sind:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|c|r|l}
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Wert} & \textbf{Beschreibung} \\
+\hline
+Lernrate & $\alpha$ & 0.15 & Geschwindigkeit der Q-Updates \\
+Diskontierungsfaktor & $\gamma$ & 0.95 & Gewichtung zukünftiger Rewards \\
+Explorationsrate & $\epsilon$ & 0.40 & Anteil zufälliger Züge \\
+Trainings-Episoden & -- & 100.000 & Anzahl Spiele im Training \\
+\end{tabular}
+\caption{Optimierte Hyperparameter}
+\end{table}
+
+
+\section{Lernerfolgsnachweis und Problemanalyse}
+
+\subsection{Experimentelles Setup und Ergebnisse}
+
+Zur Evaluation spielt der Agent 1.000 Testspiele gegen einen Zufallsspieler, wobei er abwechselnd als Startspieler (X) und Zweitspieler (O) antritt. Vor dem Training erreicht der Agent eine Siegrate von 52,3\%, was dem Zufall entspricht. Nach 100.000 Trainings-Episoden steigt diese auf \textbf{96,7\%} (967 Siege, 9 Niederlagen, 24 Unentschieden). Die State Space Coverage beträgt 92,3\% -- der Agent hat 5.578 der 6.046 theoretisch möglichen Zustände kennengelernt.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|r|r}
+\textbf{Phase} & \textbf{Siege} & \textbf{Niederlagen} & \textbf{Unentschieden} & \textbf{Siegrate} \\
+\hline
+Vor Training & 523 & 287 & 190 & 52,3\% \\
+Nach Training (100k) & 967 & 9 & 24 & \textbf{96,7\%} \\
+\end{tabular}
+\caption{Ergebnisse vor und nach dem Training}
+\end{table}
+
+Im Vergleich zum neuronalen Netzwerk zeigt sich tabellarisches Q-Learning als deutlich effizienter:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|l}
+\textbf{Metrik} & \textbf{Q-Learning} & \textbf{Neural Network} & \textbf{Verhältnis} \\
+\hline
+Trainingszeit & 0,18s & 14,63s & 81$\times$ langsamer \\
+Siegrate & 96,7\% & 78,7\% & NN schlechter \\
+Code-Zeilen & $\sim$500 & $\sim$1.140 & 2,3$\times$ mehr \\
+\end{tabular}
+\caption{Vergleich Q-Learning vs. Neural Network}
+\end{table}
+
+\subsection{Festgestellte Probleme und Lösungen}
+
+Während der Entwicklung wurden mehrere Herausforderungen identifiziert und gelöst:
+
+\begin{enumerate}
+    \item \textbf{Niedrige State Coverage bei geringem $\epsilon$:} Ein $\epsilon$-Wert von 0,1 führte zu nur 65\% State Coverage, da der Agent zu wenig explorierte und viele Spielsituationen nie kennenlernte. Die Erhöhung auf $\epsilon = 0,4$ löste dieses Problem.
+    
+    \item \textbf{Asymmetrisches Lernen:} Der Agent lernte als Startspieler (X) besser als als Zweitspieler (O), da X statistisch im Vorteil ist. Balanciertes Training mit abwechselnden Farben gleicht dies aus.
+    
+    \item \textbf{Credit Assignment Problem:} Die Sparse-Reward-Struktur erschwert die Zuordnung, welcher Zug für den Sieg verantwortlich war. Die Rückwärts-Propagation der Q-Werte am Spielende ist daher essentiell.
+\end{enumerate}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% KAPITEL 4: FAZIT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Fazit}
+
+Die vorliegende Ausarbeitung hat zwei grundlegend verschiedene Ansätze des maschinellen Lernens behandelt: überwachtes Lernen im Kontext der Betrugserkennung und bestärkendes Lernen am Beispiel von Tic-Tac-Toe.
+
+\section{Vergleich der Ansätze}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|p{5.5cm}|p{5.5cm}}
+\textbf{Aspekt} & \textbf{Data Mining (Betrug)} & \textbf{Reinforcement Learning (Tic-Tac-Toe)} \\
+\hline
+Lernparadigma & Überwachtes Lernen & Bestärkendes Lernen \\
+Trainingsdaten & Gelabelte Datensätze (30.000) & Selbstgeneriert durch Spielen \\
+Zielfunktion & Klassifikation (ja/nein) & Maximierung kumulativer Rewards \\
+Hauptherausforderung & Imbalanced Data (5,82\% Betrug) & Exploration vs. Exploitation \\
+Beste Methode & Decision Tree & Tabellarisches Q-Learning \\
+Ergebnis & Recall 10,71\% & Siegrate 96,7\% \\
+\end{tabular}
+\caption{Gegenüberstellung der beiden Aufgabenstellungen}
+\end{table}
+
+\section{Erkenntnisse}
+
+Beide Aufgaben verdeutlichen zentrale Prinzipien des maschinellen Lernens:
+
+\textbf{Data Mining:} Bei unbalancierten Datensätzen ist die Accuracy als alleinige Metrik ungeeignet. Das Accuracy Paradox zeigt, dass ein Modell mit hoher Genauigkeit dennoch praktisch nutzlos sein kann, wenn es die relevante Minderheitsklasse nicht erkennt. Für Betrugserkennungsanwendungen sind Recall und Precision die entscheidenden Metriken.
+
+\textbf{Reinforcement Learning:} Die Wahl des richtigen Algorithmus hängt stark von der Problemgröße ab. Für kleine State Spaces wie bei Tic-Tac-Toe (6.046 Zustände) ist tabellarisches Q-Learning neuronalen Netzen überlegen -- sowohl in Bezug auf Trainingszeit als auch Ergebnisqualität. Neuronale Netze entfalten ihren Vorteil erst bei großen oder kontinuierlichen State Spaces, wo Generalisierung notwendig wird.
+
+\section{Ausblick}
+
+Für die Betrugserkennung könnten fortgeschrittene Techniken wie SMOTE (Synthetic Minority Over-sampling Technique) oder Cost-sensitive Learning die Erkennung der Minderheitsklasse verbessern. Im Bereich des \ac{RL} wäre die Anwendung von \acp{DQN} auf komplexere Spiele wie Connect Four oder Schach ein logischer nächster Schritt.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ANHANG
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Anhang}
+
+\section{Verzeichnis der Projektartefakte}
+
+\subsection{Data Mining}
+\begin{itemize}
+    \item \texttt{Klassifizierungsdaten-tree-predictions.csv} -- Vorhersagen für die 20.000 Klassifizierungsdatensätze
+    \item KNIME-Workflow (Screenshots in Kapitel 2)
+\end{itemize}
+
+\subsection{Reinforcement Learning}
+\begin{itemize}
+    \item Java-Quellcode im Package \texttt{tic\_tac\_toe\_mi}
+    \item Hauptklassen:
+    \begin{itemize}
+        \item \texttt{Spieler.java} -- Facade-Klasse, implementiert \texttt{ILernenderSpieler}
+        \item \texttt{QLearningAgent.java} -- Q-Learning Algorithmus
+        \item \texttt{SpielzustandKonverter.java} -- State-Repräsentation
+        \item \texttt{SpielzustandAnalyzer.java} -- Spielzustand-Analyse
+    \end{itemize}
+    \item Trainierte Modelle im Verzeichnis \texttt{models/}
+\end{itemize}
+
+\section{Nutzungsanleitung Tic-Tac-Toe}
+
+\subsection{Voraussetzungen}
+\begin{itemize}
+    \item Java 11 oder höher
+    \item Maven (für Build)
+    \item Die bereitgestellte Bibliothek \texttt{tic\_tac\_toe.jar} im \texttt{lib/}-Verzeichnis
+\end{itemize}
+
+\subsection{Ausführung}
+\begin{lstlisting}[language=bash, caption={Build und Ausführung}]
+# Projekt bauen
+mvn clean compile
+
+# Demo mit Training und Evaluation starten
+mvn exec:java -Dexec.mainClass="tic_tac_toe_mi.FinalesDemo"
+
+# Interaktives Spiel gegen den trainierten Agenten
+mvn exec:java -Dexec.mainClass="tic_tac_toe_mi.InteraktivesSpiel"
+\end{lstlisting}
