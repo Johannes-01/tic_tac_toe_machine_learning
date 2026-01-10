@@ -1,0 +1,339 @@
+
+\chapter{Aufgabe Bestärkendes Lernen (Tic-Tac-Toe)}
+
+\section{Problembeschreibung und Komplexität}
+
+Tic-Tac-Toe ist ein klassisches Zwei-Personen-Strategiespiel auf einem $3 \times 3$ Spielfeld. Zwei Spieler setzen abwechselnd ihre Symbole (X und O), wobei X stets beginnt. Gewonnen hat, wer zuerst drei gleiche Symbole in einer Reihe platziert -- horizontal, vertikal oder diagonal. Sind alle neun Felder belegt ohne Sieger, endet das Spiel unentschieden.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+    Spielfeld            Gewinnlinien (8 mögliche)
+                    
+   0 | 1 | 2            =========  ---------  ---------
+  ---+---+---             Zeile 0    Zeile 1    Zeile 2
+   3 | 4 | 5            
+  ---+---+---              |          |          |
+   6 | 7 | 8            Spalte 0  Spalte 1  Spalte 2
+                    
+                           \          /
+                        Diagonale  Antidiagonale
+\end{verbatim}
+\caption{Spielfeld und Gewinnlinien bei Tic-Tac-Toe}
+\end{figure}
+
+Das Spiel ist ein \textbf{deterministisches Nullsummenspiel} mit \textbf{perfekter Information}. Der Gewinn des einen Spielers entspricht exakt dem Verlust des anderen, und beide kennen jederzeit den vollständigen Spielzustand.
+
+Die Komplexität des Spiels lässt sich aus verschiedenen Perspektiven betrachten. Die naive obere Grenze ergibt sich aus $3^9 = 19.683$ möglichen Feldbelegungen, da jedes der neun Felder drei Zustände annehmen kann (leer, X oder O). Nach Eliminierung ungültiger Zustände, etwa wenn mehr O als X auf dem Feld stehen oder nach einem bereits entschiedenen Spiel weiter gezogen wird, verbleiben exakt \textbf{6.046 gültige Brettzustände}. Da zwei Brettstellungen als äquivalent gelten, wenn sie durch eine Transformationen ineinander überführt werden können, muss man zusätzliche die acht Symmetrien des Spielfelds beachten.\autocite{noauthor_group_2026} Beispielsweise ein X in der linken oberen Ecke ist spieltheoretisch identisch mit einem X in jeder anderen Ecke, da eine Rotation das Brett exakt überführt. Unter dieser Berücksichtigung reduziert sich Wert auf 765 kanonische Positionen auf dem Spielfeld. Die Anzahl aller möglichen Spielverläufe vom Start bis zum Ende beträgt 255.168.\autocite{jeff_what_2025}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|l}
+\textbf{Perspektive} & \textbf{Anzahl} & \textbf{Relevanz} \\
+\hline
+Alle Kombinationen ($3^9$) & 19.683 & Obere Grenze \\
+Gültige Brettzustände & 6.046 & \textbf{State Space für Q-Tabelle} \\
+Kanonische Positionen & 765 & Mit Symmetrie-Reduktion \\
+Spielverläufe (Game Tree) & 255.168 & Kombinatorische Komplexität \\
+\end{tabular}
+\caption{State Space Hierarchie bei Tic-Tac-Toe}
+\end{table}
+
+Für das maschinelle Lernen ist primär die Zahl 6.046 relevant, da diese den State Space für eine Q-Tabelle definiert. Diese vergleichsweise geringe Größe macht Tic-Tac-Toe zu einem idealen Lernbeispiel: Eine vollständige Q-Tabelle benötigt nur etwa 400-500 KB Speicher, das Training dauert wenige Sekunden und perfektes Spiel ist theoretisch erreichbar.
+
+
+\section{Theoretische Grundlagen}
+
+\subsection{Reinforcement Learning}
+
+\ac{RL} ist ein Paradigma des maschinellen Lernens, bei dem ein \textbf{Agent} durch Interaktion mit einer \textbf{Umgebung} lernt. Der Agent beobachtet den aktuellen \textbf{Zustand (State)}, führt eine \textbf{Aktion} aus und erhält daraufhin eine \textbf{Belohnung (Reward)} sowie den neuen Zustand. Durch wiederholte Interaktion lernt der Agent eine \textbf{Policy} (Strategie), die den kumulativen Reward maximiert.
+
+\begin{figure}[h]
+\centering
+\begin{verbatim}
+                    RL-Interaktionszyklus
+                    
+        +-------------------------------------------+
+        |                                           |
+        |    +-----------+      Aktion a_t         |
+        |    |           | -------------------->   |
+        |    |   Agent   |                         |
+        |    |           | <--------------------   |
+        |    +-----------+   State s_t+1           |
+        |         ^          Reward r_t            |
+        |         |                                |
+        |    beobachtet                            |
+        |    & lernt                               |
+        |         |          +--------------+      |
+        |         +----------| Umgebung     |      |
+        |                    | (Spielfeld)  |      |
+        |                    +--------------+      |
+        +-------------------------------------------+
+\end{verbatim}
+\caption{\ac{RL}-Interaktionszyklus zwischen Agent und Umgebung}
+\end{figure}
+
+
+\break Tic-Tac-Toe lässt sich als \textbf{\ac{MDP}} formalisieren, definiert durch das Tupel $(S, A, P, R, \gamma)$:
+\begin{itemize}
+    \item $S$: Zustandsraum (6.046 gültige Spielfeldkonfigurationen)
+    \item $A$: Aktionsraum (bis zu neun mögliche Züge je nach Spielsituation)
+    \item $P$: Übergangswahrscheinlichkeit (deterministisch -- jeder Zug führt zu genau einem Folgezustand)
+    \item $R$: Belohnungsfunktion
+    \item $\gamma$: Diskontierungsfaktor
+\end{itemize}
+
+\subsection{Q-Learning}
+
+Q-Learning ist ein \textbf{model-free, off-policy} \ac{RL}-Algorithmus. \glqq Model-free\grqq{} bedeutet, dass keine Kenntnis der Übergangswahrscheinlichkeiten nötig ist -- der Agent lernt ausschließlich durch Erfahrung. \glqq Off-policy\grqq{} heißt, dass der Agent aus Erfahrungen lernt, die nicht unbedingt der aktuellen Strategie entsprechen.
+
+Der Kern des Algorithmus ist die \textbf{Q-Funktion} $Q(s, a)$, die den erwarteten kumulativen Reward schätzt, wenn im Zustand $s$ die Aktion $a$ ausgeführt und danach optimal gespielt wird. Die Q-Werte werden iterativ durch die \textbf{Bellman Update-Regel} aktualisiert:
+
+\begin{equation}
+Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]
+\end{equation} \autocite{noauthor_bellman-gleichung_nodate}
+
+Diese Formel beschreibt: Der neue Q-Wert ergibt sich aus dem alten plus einer Korrektur. Die Korrektur entspricht der Differenz zwischen dem tatsächlich erhaltenen Reward $r$ plus dem diskontierten maximalen zukünftigen Q-Wert einerseits und dem aktuellen Q-Wert andererseits. Die \textbf{Lernrate} $\alpha$ (typisch 0.1-0.3) bestimmt, wie stark neue Erfahrungen alte überschreiben -- ein hoher Wert führt zu schnellem, aber potenziell instabilem Lernen. Der \textbf{Diskontierungsfaktor} $\gamma$ (typisch 0.9-0.99) gewichtet zukünftige Belohnungen gegenüber unmittelbaren -- ein Wert nahe 1 bedeutet, dass der Agent langfristig plant.
+
+Ein zentrales Problem im \ac{RL} ist das Dilemma zwischen \textbf{Exploration und Exploitation}: Soll der Agent bekanntes Wissen nutzen (Exploitation) oder neue Strategien ausprobieren (Exploration)? Die \textbf{Epsilon-Greedy Strategie} löst dies, indem mit Wahrscheinlichkeit $\epsilon$ eine zufällige Aktion gewählt wird und mit $1-\epsilon$ die nach Q-Werten beste.
+
+\subsection{Neuronale Netze im \ac{RL}-Kontext}
+
+Die Aufgabenstellung empfiehlt den Einsatz neuronaler Netze und fordert eine Erläuterung, wann dieser sinnvoll ist. In diesem Abschnitt wird zunächst die Theorie erläutert und anschließend begründet, warum für Tic-Tac-Toe eine tabellarische Q-Funktion gewählt wurde.
+
+\subsubsection{\ac{DQN} -- Theorie}
+
+Neuronale Netze können die Q-Funktion approximieren: $Q(s, a; \theta) \approx Q^*(s, a)$, wobei $\theta$ die trainierbaren Gewichte darstellt. Anstatt jeden Zustand einzeln in einer Tabelle zu speichern, lernt das Netzwerk eine Funktion, die für beliebige Eingabezustände Q-Werte berechnet. Diese Architektur wird als \textbf{\ac{DQN}} bezeichnet.\autocite{amin_deep_2024}
+
+\textbf{Wann ist der Einsatz sinnvoll?}
+\begin{itemize}
+    \item \textbf{Großer State Space:} Bei Spielen wie Schach ($10^{43}$ Zustände) oder Go ($10^{170}$ Zustände) ist eine vollständige Q-Tabelle nicht speicherbar -- hier ist Funktionsapproximation zwingend erforderlich.
+    \item \textbf{Kontinuierliche Zustände:} Bei Robotersteuerung oder autonomem Fahren sind Zustände keine diskreten Werte, sondern kontinuierliche Sensorwerte (Winkel, Geschwindigkeit, Pixelwerte).
+    \item \textbf{Generalisierung:} Neuronale Netze können von ähnlichen Zuständen lernen -- ein Schachbrett mit leicht verschobenen Figuren sollte ähnlich bewertet werden.
+\end{itemize}
+
+\subsubsection{Implementierung und empirischer Vergleich}
+
+Um die Empfehlung der Aufgabenstellung zu evaluieren, wurde zusätzlich zur tabellarischen Q-Funktion ein \textbf{vollständiges neuronales Netz in Pure Java} implementiert (ohne externe Bibliotheken). Die Architektur umfasst:
+
+\begin{itemize}
+    \item \texttt{NeuralNetwork.java}: Multi-Layer Perceptron (9 $\rightarrow$ 128 $\rightarrow$ 64 $\rightarrow$ 9), 10.121 Parameter
+    \item \texttt{Matrix.java}: Matrix-Vektor Operationen, Xavier-Initialisierung
+    \item \texttt{ActivationFunction.java}: ReLU, Sigmoid, Tanh, Linear mit Ableitungen
+    \item \texttt{Layer.java}: Forward- und Backward-Pass (Backpropagation)
+    \item \texttt{ExperienceReplay.java}: \ac{DQN}-typischer Replay Buffer
+\end{itemize}
+
+\newpage
+\textbf{Benchmark-Ergebnisse:}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|r}
+\textbf{Metrik} & \textbf{Q-Tabelle} & \textbf{Neural Network} & \textbf{Verhältnis} \\
+\hline
+Trainingszeit & 0,22s & 153,32s & 697$\times$ langsamer \\
+Episoden & 100.000 & 100.000 & gleich \\
+Siegrate & 88,0\% & 79,0\% & NN schlechter \\
+Geschwindigkeit & 458.715 Ep./s & 652 Ep./s & 704$\times$ langsamer \\
+Code-Komplexität & $\sim$500 \ac{LOC} & $\sim$1.140 \ac{LOC} & 2,3$\times$ mehr \\
+Interpretierbarkeit & \checkmark{} (JSON) & $\times$ (Black Box) & -- \\
+\end{tabular}
+\caption{Empirischer Vergleich: Q-Tabelle vs. Neuronales Netz}
+\end{table}
+
+\subsubsection{Begründung der Designentscheidung}
+
+Obwohl die Aufgabenstellung neuronale Netze empfiehlt, zeigt der empirische Vergleich eindeutig, dass für Tic-Tac-Toe die \textbf{tabellarische Q-Funktion die bessere Wahl} ist:
+
+\begin{enumerate}
+    \item \textbf{State Space ist klein:} Mit nur 6.046 gültigen Zuständen ist eine vollständige Q-Tabelle problemlos speicherbar ($\sim$400 KB). Neuronale Netze entfalten ihren Vorteil erst bei State Spaces, die zu groß für Tabellen sind.
+    
+    \item \textbf{700-fach schnelleres Training:} Die Q-Tabelle erreicht bessere Ergebnisse in einem Bruchteil der Zeit, da keine Matrixmultiplikationen und kein Backpropagation nötig sind.
+    
+    \item \textbf{Höhere Siegrate:} 88,0\% vs. 79,0\% -- die Q-Tabelle kann jeden Zustand exakt speichern, während das NN nur approximiert und dabei Information verliert.
+    
+    \item \textbf{Kein Hyperparameter-Tuning:} Neuronale Netze erfordern sorgfältige Abstimmung von Lernrate, Netzwerkarchitektur, Batch-Größe etc. Q-Learning ist robuster.
+    
+    \item \textbf{Interpretierbarkeit:} Die Q-Tabelle kann als JSON exportiert und inspiziert werden. Welche Züge werden in welchen Situationen bevorzugt? Ein NN ist eine Black Box.
+\end{enumerate}
+
+\textbf{Fazit:} Die Empfehlung der Aufgabenstellung ist für größere Probleme korrekt, aber für Tic-Tac-Toe gilt das Prinzip \glqq Keep It Simple\grqq{}. Ein neuronales Netz wurde implementiert und getestet, aber bewusst nicht als finale Lösung gewählt.
+
+\subsection{Belohnungsstruktur}
+
+Die gewählte Reward-Funktion ist einfach strukturiert:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r}
+\textbf{Ereignis} & \textbf{Reward} \\
+\hline
+Sieg & $+1.0$ \\
+Niederlage & $-1.0$ \\
+Unentschieden & $0.0$ \\
+Zwischenzug & $0.0$ \\
+\end{tabular}
+\caption{Belohnungsstruktur für Tic-Tac-Toe}
+\end{table}
+
+Diese \textbf{\glqq sparse reward\grqq{}-Struktur}, Belohnung nur am Spielende, funktioniert durch den Diskontierungsfaktor, der den Wert rückwärts durch die Zugsequenz propagiert: Ein Zug, der zum Sieg führt, erhält durch wiederholtes Training einen hohen Q-Wert, auch wenn der Reward erst später erfolgt.
+
+
+\section{Lösungsarchitektur und Implementierung}
+
+\subsection{Bereitgestellte Komponenten}
+
+Als Grundlage für die Implementierung wurde von der Hochschule die Bibliothek \break\texttt{tic\_tac\_toe.jar} bereitgestellt. Diese enthält die grundlegende Spielinfrastruktur und definiert die zu implementierenden Schnittstellen:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|l}
+\textbf{Klasse/Interface} & \textbf{Beschreibung} \\
+\hline
+\multicolumn{2}{l}{\textit{Package tictactoe.*}} \\
+\texttt{Spielfeld} & Repräsentiert das 3$\times$3 Spielbrett \\
+\texttt{Zug} & Ein Spielzug (Zeile, Spalte) \\
+\texttt{Farbe} & Enum: KREIS oder KREUZ \\
+\texttt{Spielstand} & Ergebnis eines Spiels \\
+\texttt{TicTacToe} & Spiellogik und Regelprüfung \\
+\texttt{Wettkampf} & Testumgebung für Spieler-Evaluation \\
+\hline
+\multicolumn{2}{l}{\textit{Package tictactoe.spieler.*}} \\
+\texttt{ISpieler} & Interface für alle Spieler \\
+\texttt{ILernenderSpieler} & Erweitertes Interface für RL-Spieler \\
+\texttt{Zufallsspieler} & Beispiel-Gegner für Tests \\
+\end{tabular}
+\caption{Bereitgestellte Klassen aus tic\_tac\_toe.jar}
+\end{table}
+
+Das Interface \texttt{ILernenderSpieler} schreibt die Methoden \texttt{neuesSpiel(Farbe, int)} und \texttt{berechneZug(Zug, long, long)} vor, die von der eigenen Implementierung überschrieben werden müssen.
+
+\subsection{Architekturübersicht (Eigenentwicklung)}
+
+Die eigene Implementierung folgt dem \textbf{\ac{SRP}} sowie dem \textbf{Facade Pattern}. Das \ac{SRP} besagt, dass jede Klasse genau eine Verantwortlichkeit haben soll, was Wartbarkeit und Testbarkeit verbessert. Das Facade Pattern stellt eine vereinfachte Schnittstelle zu einem komplexen Subsystem bereit.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+Eigenentwickelte Klassen:
+
++--------------------------------------------------------+
+|                      Spieler                            |
+|        (Facade - Implementiert ILernenderSpieler)       |
+|  Orchestriert alle Komponenten, verwaltet Spielfeld     |
++----------------------------+---------------------------+
+                             | verwendet
+                             v
++--------------------------------------------------------+
+|                   QLearningAgent                        |
+|   Q-Tabelle, Bellman-Update, Epsilon-Greedy-Auswahl     |
++----------------------------+---------------------------+
+                             | verwendet
+          +------------------+------------------+
+          v                                     v
++----------------------+          +------------------------+
+| SpielzustandKonverter|          |  SpielzustandAnalyzer  |
+| Spielfeld -> String  |          |  Spielende, Reward,    |
+| für Q-Tabelle        |          |  mögliche Züge         |
++----------------------+          +------------------------+
+\end{verbatim}
+\caption{Klassendiagramm der Eigenentwicklung}
+\end{figure}
+
+Die \texttt{Spieler}-Klasse implementiert das Interface \texttt{ILernenderSpieler} und dient als Fassade. Sie verwaltet das interne Spielfeld, delegiert die Zugauswahl an den \texttt{QLearningAgent} und koordiniert den Trainingsablauf. Der \texttt{QLearningAgent} enthält die Q-Tabelle als HashMap, die Spielzustände (Strings) auf Arrays mit neun Q-Werten abbildet -- einen pro möglichem Feld. Der \texttt{SpielzustandKonverter} transformiert ein Spielfeld in eine normalisierte String-Repräsentation (z.B. \glqq X..O.X...\grqq{}), wobei stets die eigene Farbe als X und die gegnerische als O kodiert wird. Der \texttt{SpielzustandAnalyzer} prüft Gewinnbedingungen, berechnet Rewards und ermittelt gültige Züge.
+
+\subsection{Lernalgorithmus im Code}
+
+Der zentrale Lernmechanismus ist in der Methode \texttt{lernen()} implementiert:
+
+\begin{figure}
+    \centering
+    \begin{minipage}{1\linewidth}
+         \begin{lstlisting}[language=Java]
+public void lernen(String state, int aktion, double reward, 
+                   String naechsterState, boolean istTerminal) {
+    double[] qWerte = getQWerte(state);
+    double alterQWert = qWerte[aktion];
+    
+    double neuerQWert;
+    if (istTerminal) {
+        // Bei Spielende: Nur direkten Reward verwenden
+        neuerQWert = alterQWert + lernrate * (reward - alterQWert);
+    } else {
+        // Waehrend des Spiels: Zukuenftigen Wert einbeziehen
+        double maxNaechsterQ = getMaxQWert(naechsterState);
+        neuerQWert = alterQWert + lernrate * 
+            (reward + discountFaktor * maxNaechsterQ - alterQWert);
+    }
+    qWerte[aktion] = neuerQWert;
+}
+\end{lstlisting}
+    \end{minipage}
+    \caption{Q-Learning Update-Methode}
+    \label{lst:q-learning-update-method}
+    \centering \textit{Quelle: eigene Darstellung}
+\end{figure}
+
+\subsection{Trainingsablauf}
+
+Das Training erfolgt in einem Loop über 100.000 Episoden. Jede Episode startet mit leerem Spielfeld. Agent und Gegner (Zufallsspieler) ziehen abwechselnd, wobei der Agent per Epsilon-Greedy wählt. Nach jedem Zug wird ein Tupel (Zustand, Aktion, Reward, Folgezustand) gespeichert. Am Spielende werden die Q-Werte aller Züge rückwärts aktualisiert, wodurch der Endreward durch die gesamte Zugsequenz propagiert wird.
+
+Die optimalen \textbf{Hyperparameter} nach empirischer Evaluation (Grid-Search über 64 Kombinationen) sind:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|c|r|l}
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Wert} & \textbf{Beschreibung} \\
+\hline
+Lernrate & $\alpha$ & 0.30 & Geschwindigkeit der Q-Updates \\
+Diskontierungsfaktor & $\gamma$ & 0.99 & Gewichtung zukünftiger Rewards \\
+Explorationsrate & $\epsilon$ & 0.40 & Anteil zufälliger Züge \\
+Trainings-Episoden & -- & 100.000 & Anzahl Spiele im Training \\
+\end{tabular}
+\caption{Optimierte Hyperparameter}
+\end{table}
+
+
+\section{Lernerfolgsnachweis und Problemanalyse}
+
+\subsection{Experimentelles Setup und Ergebnisse}
+
+Zur Evaluation spielt der Agent 2.000 Testspiele gegen einen Zufallsspieler, wobei er abwechselnd als Startspieler (X) und Zweitspieler (O) antritt. Vor dem Training erreicht der Agent eine Siegrate von ca. 50\%, was dem Zufall entspricht. Nach 100.000 Trainings-Episoden steigt diese auf \textbf{88,0\%} (1.760 Siege, 214 Niederlagen, 26 Unentschieden). Die State Space Coverage beträgt 92,2\% -- der Agent hat 5.581 der 6.046 theoretisch möglichen Zustände kennengelernt.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|r|r}
+\textbf{Phase} & \textbf{Siege} & \textbf{Niederlagen} & \textbf{Unentschieden} & \textbf{Siegrate} \\
+\hline
+Vor Training & ca. 500 & ca. 300 & ca. 200 & $\sim$50\% \\
+Nach Training (100k) & 1.760 & 214 & 26 & \textbf{88,0\%} \\
+\end{tabular}
+\caption{Ergebnisse vor und nach dem Training (2.000 Testspiele)}
+\end{table}
+
+Im Vergleich zum neuronalen Netzwerk zeigt sich tabellarisches Q-Learning als deutlich effizienter:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|r|r|l}
+\textbf{Metrik} & \textbf{Q-Learning} & \textbf{Neural Network} & \textbf{Verhältnis} \\
+\hline
+Trainingszeit & 0,22s & 153,32s & 697$\times$ langsamer \\
+Siegrate & 88,0\% & 79,0\% & NN schlechter \\
+Code-Zeilen & $\sim$500 & $\sim$1.140 & 2,3$\times$ mehr \\
+\end{tabular}
+\caption{Vergleich Q-Learning vs. Neural Network (jeweils 100.000 Episoden)}
+\end{table}
+
+\subsection{Festgestellte Probleme und Lösungen}
+
+Während der Entwicklung wurden mehrere Herausforderungen identifiziert und gelöst:
+
+\begin{enumerate}
+    \item \textbf{Niedrige State Coverage bei geringem $\epsilon$:} Ein $\epsilon$-Wert von 0,1 führte zu nur 65\% State Coverage, da der Agent zu wenig explorierte und viele Spielsituationen nie kennenlernte. Die Erhöhung auf $\epsilon = 0,4$ löste dieses Problem.
+    
+    \item \textbf{Asymmetrisches Lernen:} Der Agent lernte als Startspieler (X) besser als als Zweitspieler (O), da X statistisch im Vorteil ist. Balanciertes Training mit abwechselnden Farben gleicht dies aus.
+    
+    \item \textbf{Credit Assignment Problem:} Die Sparse-Reward-Struktur erschwert die Zuordnung, welcher Zug für den Sieg verantwortlich war. Die Rückwärts-Propagation der Q-Werte am Spielende ist daher essentiell.
+\end{enumerate}

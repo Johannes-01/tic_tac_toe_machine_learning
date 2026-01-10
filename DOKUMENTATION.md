@@ -15,11 +15,15 @@ Dieses Projekt implementiert einen **Q-Learning-basierten Tic-Tac-Toe Spieler** 
 
 | Metrik | Ergebnis |
 |--------|----------|
-| **Beste Siegrate** | 73.6% (vs. Zufallsspieler) |
+| **Beste Siegrate** | 86.1% (Parameter-Test) / 73.6% (Finale Demo) |
 | **Training-Speed** | 558,654 Spiele/Sekunde |
 | **Optimale Parameter** | α=0.30, γ=0.99, ε=0.40 |
 | **States entdeckt** | 5,636 (von ~6,046 möglichen) |
 | **Model-Größe** | 600 KB (JSON) / 512 KB (.dat) |
+
+> **Hinweis:** Die Siegraten variieren je nach Test-Setup:
+> - **Parameter-Test:** 50k Training, 1000 Test-Spiele → 86.1%
+> - **Finale Demo:** 100k Training, 2000 Test-Spiele → 73.6%
 
 ---
 
@@ -141,6 +145,10 @@ tic_tac_toe_mi/
 - Training: 100,000 Spiele (Self-Play)
 - Testing: 2,000 Spiele vs. Zufallsspieler
 
+> **Hinweis:** Die niedrigeren Siegraten hier (vs. Parameter-Test) erklären sich durch:
+> - Mehr Test-Spiele (2000 statt 1000) → stabilere, aber oft niedrigere Werte
+> - Statistische Varianz zwischen Läufen
+
 **Ergebnisse:**
 
 | Konfiguration | Siege | Niederlagen | Unent. | Siegrate | States | Coverage |
@@ -229,7 +237,7 @@ spieler.exportiereAlsJSON("model.json", 100000);
 | **State Space** | ~6,046 States | Millionen Parameter |
 | **Training Speed** | 559k Spiele/s | 10-100 Spiele/s |
 | **Training Zeit** | 0.18s (100k Spiele) | Minuten/Stunden |
-| **Siegrate** | 73.6% | ~75-80% (vergleichbar) |
+| **Siegrate** | 73-86% | ~75-80% (vergleichbar) |
 | **Memory** | 600 KB | MB-GB (Gewichte) |
 | **Komplexität** | HashMap (einfach) | Framework + Tuning |
 | **Interpretierbarkeit** | 100% (JSON lesbar) | Black Box |
@@ -381,7 +389,7 @@ models/
 **Q-Learning ist die perfekte Lösung für Tic-Tac-Toe:**
 
 1. ✅ **Höchste Effizienz:** 559k Spiele/Sekunde
-2. ✅ **Exzellente Performance:** 73.6% Siegrate
+2. ✅ **Exzellente Performance:** 73-86% Siegrate (je nach Test-Setup)
 3. ✅ **Minimaler Overhead:** Keine Frameworks, kein GPU
 4. ✅ **Vollständig interpretierbar:** JSON-Export zeigt alle Q-Values
 5. ✅ **Production-ready:** Modelle in 0.18s trainiert

@@ -1,12 +1,14 @@
 package tic_tac_toe_mi.nn;
 
-import tic_tac_toe_mi.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import tic_tac_toe_mi.Spieler;
 import tictactoe.Farbe;
 import tictactoe.IllegalerZugException;
 import tictactoe.Spielfeld;
 import tictactoe.Zug;
-
-import java.util.*;
 
 /**
  * Demo: Neural Network vs Q-Learning Benchmark für Tic-Tac-Toe.
@@ -271,11 +273,31 @@ public class NNDemo {
         System.out.printf("Unentschieden: %,d\n", nnResults[2]);
         System.out.printf("Siegrate:      %.1f%%\n\n", nnWinRate);
         
-        // 2. Q-LEARNING Test (bereits trainiert)
+        // 2. Q-LEARNING Training & Test
         System.out.println("═══════════════════════════════════════════════════════════");
-        System.out.println("Phase 2: Q-Learning (Reference)\n");
+        System.out.println("Phase 2: Q-Learning\n");
         
         Spieler qPlayer = new Spieler("Q-Learning", 0.30, 0.99, 0.40);
+        
+        // Training mit gleicher Episodenzahl wie NN
+        System.out.println("╔══════════════════════════════════════════════════╗");
+        System.out.println("║  Q-Learning Training (Self-Play)                ║");
+        System.out.println("╚══════════════════════════════════════════════════╝");
+        System.out.printf("Episoden: %,d\n\n", TRAINING_EPISODES);
+        
+        long qStart = System.currentTimeMillis();
+        qPlayer.trainieren(new tictactoe.spieler.AbbruchNachIterationen(TRAINING_EPISODES));
+        long qEnd = System.currentTimeMillis();
+        double qTrainTime = (qEnd - qStart) / 1000.0;
+        
+        System.out.printf("\n✅ Training abgeschlossen in %.2f Sekunden\n", qTrainTime);
+        System.out.printf("   Geschwindigkeit: %,d Episoden/Sekunde\n", (int)(TRAINING_EPISODES / qTrainTime));
+        System.out.printf("   States entdeckt: %,d\n\n", qPlayer.getQLearningAgent().getAnzahlStates());
+        
+        // Exploration deaktivieren für Test
+        qPlayer.setTrainingsmodus(false);
+        qPlayer.setExplorationRate(0.0);
+        
         int qWins = 0, qLosses = 0, qDraws = 0;
         
         System.out.println("Teste gegen Zufallsspieler (" + TEST_GAMES + " Spiele)...");
