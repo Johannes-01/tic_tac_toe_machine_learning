@@ -22,7 +22,7 @@ Tic-Tac-Toe ist ein klassisches Zwei-Personen-Strategiespiel auf einem $3 \times
 \caption{Spielfeld und Gewinnlinien bei Tic-Tac-Toe}
 \end{figure}
 
-Das Spiel ist ein \textbf{deterministisches Nullsummenspiel} mit \textbf{perfekter Information}. Der Gewinn des einen Spielers entspricht exakt dem Verlust des anderen, und beide kennen jederzeit den vollständigen Spielzustand.
+Das Spiel ist ein deterministisches Nullsummenspiel mit perfekter Information. Der Gewinn des einen Spielers entspricht exakt dem Verlust des anderen, und beide kennen jederzeit den vollständigen Spielzustand.
 
 Die Komplexität des Spiels lässt sich aus verschiedenen Perspektiven betrachten. Die naive obere Grenze ergibt sich aus $3^9 = 19.683$ möglichen Feldbelegungen, da jedes der neun Felder drei Zustände annehmen kann (leer, X oder O). Nach Eliminierung ungültiger Zustände, etwa wenn mehr O als X auf dem Feld stehen oder nach einem bereits entschiedenen Spiel weiter gezogen wird, verbleiben exakt \textbf{6.046 gültige Brettzustände}. Da zwei Brettstellungen als äquivalent gelten, wenn sie durch eine Transformationen ineinander überführt werden können, muss man zusätzliche die acht Symmetrien des Spielfelds beachten.\autocite{noauthor_group_2026} Beispielsweise ein X in der linken oberen Ecke ist spieltheoretisch identisch mit einem X in jeder anderen Ecke, da eine Rotation das Brett exakt überführt. Unter dieser Berücksichtigung reduziert sich Wert auf 765 kanonische Positionen auf dem Spielfeld. Die Anzahl aller möglichen Spielverläufe vom Start bis zum Ende beträgt 255.168.\autocite{jeff_what_2025}
 
@@ -74,7 +74,7 @@ Für das maschinelle Lernen ist primär die Zahl 6.046 relevant, da diese den St
 \end{figure}
 
 
-\break Tic-Tac-Toe lässt sich als \textbf{\ac{MDP}} formalisieren, definiert durch das Tupel $(S, A, P, R, \gamma)$:
+\break Tic-Tac-Toe lässt sich als \ac{MDP} formalisieren. Die MDP-Formalisierung ist hier geeignet, da das Spiel die Markov-Eigenschaft erfüllt: Der nächste Zustand hängt nur vom aktuellen Spielfeld und der gewählten Aktion ab, nicht von der Historie vorheriger Züge. Zudem sind alle Zustandsübergänge deterministisch und die Belohnungen klar definiert. Das MDP-Tupel $(S, A, P, R, \gamma)$ ist definiert als:
 \begin{itemize}
     \item $S$: Zustandsraum (6.046 gültige Spielfeldkonfigurationen)
     \item $A$: Aktionsraum (bis zu neun mögliche Züge je nach Spielsituation)
@@ -83,19 +83,21 @@ Für das maschinelle Lernen ist primär die Zahl 6.046 relevant, da diese den St
     \item $\gamma$: Diskontierungsfaktor
 \end{itemize}
 
+Diese Formalisierung ermöglicht den Einsatz von \ac{RL}-Algorithmen wie Q-Learning: Der Agent lernt für jeden Zustand $s \in S$ und jede Aktion $a \in A$ einen Q-Wert, der den erwarteten kumulativen Reward repräsentiert. Durch wiederholte Interaktion mit der Umgebung konvergiert die Q-Funktion gegen die optimale Strategie, sodass der Agent in jedem Zustand den bestmöglichen Zug wählen kann.
+
 \subsection{Q-Learning}
 
-Q-Learning ist ein \textbf{model-free, off-policy} \ac{RL}-Algorithmus. \glqq Model-free\grqq{} bedeutet, dass keine Kenntnis der Übergangswahrscheinlichkeiten nötig ist -- der Agent lernt ausschließlich durch Erfahrung. \glqq Off-policy\grqq{} heißt, dass der Agent aus Erfahrungen lernt, die nicht unbedingt der aktuellen Strategie entsprechen.
+Q-Learning ist ein model-free, off-policy \ac{RL}-Algorithmus. \glqq Model-free\grqq{} bedeutet, dass keine Kenntnis der Übergangswahrscheinlichkeiten nötig ist -- der Agent lernt ausschließlich durch Erfahrung. \glqq Off-policy\grqq{} heißt, dass der Agent aus Erfahrungen lernt, die nicht unbedingt der aktuellen Strategie entsprechen.
 
-Der Kern des Algorithmus ist die \textbf{Q-Funktion} $Q(s, a)$, die den erwarteten kumulativen Reward schätzt, wenn im Zustand $s$ die Aktion $a$ ausgeführt und danach optimal gespielt wird. Die Q-Werte werden iterativ durch die \textbf{Bellman Update-Regel} aktualisiert:
+Der Kern des Algorithmus ist die Q-Funktion $Q(s, a)$, die den erwarteten kumulativen Reward schätzt, wenn im Zustand $s$ die Aktion $a$ ausgeführt und danach optimal gespielt wird. Die Q-Werte werden iterativ durch die Bellman Update-Regel aktualisiert:\autocite{noauthor_bellman-gleichung_nodate}
 
 \begin{equation}
 Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]
-\end{equation} \autocite{noauthor_bellman-gleichung_nodate}
+\end{equation}
 
-Diese Formel beschreibt: Der neue Q-Wert ergibt sich aus dem alten plus einer Korrektur. Die Korrektur entspricht der Differenz zwischen dem tatsächlich erhaltenen Reward $r$ plus dem diskontierten maximalen zukünftigen Q-Wert einerseits und dem aktuellen Q-Wert andererseits. Die \textbf{Lernrate} $\alpha$ (typisch 0.1-0.3) bestimmt, wie stark neue Erfahrungen alte überschreiben -- ein hoher Wert führt zu schnellem, aber potenziell instabilem Lernen. Der \textbf{Diskontierungsfaktor} $\gamma$ (typisch 0.9-0.99) gewichtet zukünftige Belohnungen gegenüber unmittelbaren -- ein Wert nahe 1 bedeutet, dass der Agent langfristig plant.
+Diese Formel beschreibt: Der neue Q-Wert ergibt sich aus dem alten plus einer Korrektur. Die Korrektur entspricht der Differenz zwischen dem tatsächlich erhaltenen Reward $r$ plus dem diskontierten maximalen zukünftigen Q-Wert einerseits und dem aktuellen Q-Wert andererseits. Die Lernrate $\alpha$ (typisch 0.1-0.3) bestimmt, wie stark neue Erfahrungen alte überschreiben -- ein hoher Wert führt zu schnellem, aber potenziell instabilem Lernen. Der Diskontierungsfaktor $\gamma$ (typisch 0.9-0.99) gewichtet zukünftige Belohnungen gegenüber unmittelbaren -- ein Wert nahe 1 bedeutet, dass der Agent langfristig plant.
 
-Ein zentrales Problem im \ac{RL} ist das Dilemma zwischen \textbf{Exploration und Exploitation}: Soll der Agent bekanntes Wissen nutzen (Exploitation) oder neue Strategien ausprobieren (Exploration)? Die \textbf{Epsilon-Greedy Strategie} löst dies, indem mit Wahrscheinlichkeit $\epsilon$ eine zufällige Aktion gewählt wird und mit $1-\epsilon$ die nach Q-Werten beste.
+Ein zentrales Problem im \ac{RL} ist das Dilemma zwischen Exploration und Exploitation: Soll der Agent bekanntes Wissen nutzen (Exploitation) oder neue Strategien ausprobieren (Exploration)? Die Epsilon-Greedy Strategie löst dies, indem mit Wahrscheinlichkeit $\epsilon$ eine zufällige Aktion gewählt wird und mit $1-\epsilon$ die nach Q-Werten beste.
 
 \subsection{Neuronale Netze im \ac{RL}-Kontext}
 
@@ -103,7 +105,7 @@ Die Aufgabenstellung empfiehlt den Einsatz neuronaler Netze und fordert eine Erl
 
 \subsubsection{\ac{DQN} -- Theorie}
 
-Neuronale Netze können die Q-Funktion approximieren: $Q(s, a; \theta) \approx Q^*(s, a)$, wobei $\theta$ die trainierbaren Gewichte darstellt. Anstatt jeden Zustand einzeln in einer Tabelle zu speichern, lernt das Netzwerk eine Funktion, die für beliebige Eingabezustände Q-Werte berechnet. Diese Architektur wird als \textbf{\ac{DQN}} bezeichnet.\autocite{amin_deep_2024}
+Neuronale Netze können die Q-Funktion approximieren: $Q(s, a; \theta) \approx Q^*(s, a)$, wobei $\theta$ die trainierbaren Gewichte darstellt. Anstatt jeden Zustand einzeln in einer Tabelle zu speichern, lernt das Netzwerk eine Funktion, die für beliebige Eingabezustände Q-Werte berechnet. Diese Architektur wird als \ac{DQN} bezeichnet.\autocite{amin_deep_2024}
 
 \textbf{Wann ist der Einsatz sinnvoll?}
 \begin{itemize}
@@ -114,7 +116,7 @@ Neuronale Netze können die Q-Funktion approximieren: $Q(s, a; \theta) \approx Q
 
 \subsubsection{Implementierung und empirischer Vergleich}
 
-Um die Empfehlung der Aufgabenstellung zu evaluieren, wurde zusätzlich zur tabellarischen Q-Funktion ein \textbf{vollständiges neuronales Netz in Pure Java} implementiert (ohne externe Bibliotheken). Die Architektur umfasst:
+Um die Empfehlung der Aufgabenstellung zu evaluieren, wurde zusätzlich zur tabellarischen Q-Funktion ein vollständiges neuronales Netz in Pure Java implementiert (ohne externe Bibliotheken). Die Architektur umfasst:
 
 \begin{itemize}
     \item \texttt{NeuralNetwork.java}: Multi-Layer Perceptron (9 $\rightarrow$ 128 $\rightarrow$ 64 $\rightarrow$ 9), 10.121 Parameter
@@ -144,7 +146,7 @@ Interpretierbarkeit & \checkmark{} (JSON) & $\times$ (Black Box) & -- \\
 
 \subsubsection{Begründung der Designentscheidung}
 
-Obwohl die Aufgabenstellung neuronale Netze empfiehlt, zeigt der empirische Vergleich eindeutig, dass für Tic-Tac-Toe die \textbf{tabellarische Q-Funktion die bessere Wahl} ist:
+Obwohl die Aufgabenstellung neuronale Netze empfiehlt, zeigt der empirische Vergleich eindeutig, dass für Tic-Tac-Toe die tabellarische Q-Funktion die bessere Wahl ist:
 
 \begin{enumerate}
     \item \textbf{State Space ist klein:} Mit nur 6.046 gültigen Zuständen ist eine vollständige Q-Tabelle problemlos speicherbar ($\sim$400 KB). Neuronale Netze entfalten ihren Vorteil erst bei State Spaces, die zu groß für Tabellen sind.
@@ -177,14 +179,14 @@ Zwischenzug & $0.0$ \\
 \caption{Belohnungsstruktur für Tic-Tac-Toe}
 \end{table}
 
-Diese \textbf{\glqq sparse reward\grqq{}-Struktur}, Belohnung nur am Spielende, funktioniert durch den Diskontierungsfaktor, der den Wert rückwärts durch die Zugsequenz propagiert: Ein Zug, der zum Sieg führt, erhält durch wiederholtes Training einen hohen Q-Wert, auch wenn der Reward erst später erfolgt.
+Diese \glqq sparse reward\grqq{}-Struktur, Belohnung nur am Spielende, funktioniert durch den Diskontierungsfaktor, der den Wert rückwärts durch die Zugsequenz propagiert: Ein Zug, der zum Sieg führt, erhält durch wiederholtes Training einen hohen Q-Wert, auch wenn der Reward erst später erfolgt.
 
 
 \section{Lösungsarchitektur und Implementierung}
 
 \subsection{Bereitgestellte Komponenten}
 
-Als Grundlage für die Implementierung wurde von der Hochschule die Bibliothek \break\texttt{tic\_tac\_toe.jar} bereitgestellt. Diese enthält die grundlegende Spielinfrastruktur und definiert die zu implementierenden Schnittstellen:
+Als Grundlage für die Implementierung wurde die Bibliothek \texttt{tic\_tac\_toe.jar} bereitgestellt. Diese enthält die grundlegende Spielinfrastruktur und definiert die zu implementierenden Schnittstellen:
 
 \begin{table}[H]
 \centering
@@ -211,7 +213,7 @@ Das Interface \texttt{ILernenderSpieler} schreibt die Methoden \texttt{neuesSpie
 
 \subsection{Architekturübersicht (Eigenentwicklung)}
 
-Die eigene Implementierung folgt dem \textbf{\ac{SRP}} sowie dem \textbf{Facade Pattern}. Das \ac{SRP} besagt, dass jede Klasse genau eine Verantwortlichkeit haben soll, was Wartbarkeit und Testbarkeit verbessert. Das Facade Pattern stellt eine vereinfachte Schnittstelle zu einem komplexen Subsystem bereit.
+Die eigene Implementierung folgt dem \ac{SRP} sowie dem Facade Pattern. Das \ac{SRP} besagt, dass jede Klasse genau eine Verantwortlichkeit haben soll, was Wartbarkeit und Testbarkeit verbessert. Das Facade Pattern stellt eine vereinfachte Schnittstelle zu einem komplexen Subsystem bereit.
 
 \begin{figure}[H]
 \centering
@@ -279,7 +281,7 @@ public void lernen(String state, int aktion, double reward,
 
 Das Training erfolgt in einem Loop über 100.000 Episoden. Jede Episode startet mit leerem Spielfeld. Agent und Gegner (Zufallsspieler) ziehen abwechselnd, wobei der Agent per Epsilon-Greedy wählt. Nach jedem Zug wird ein Tupel (Zustand, Aktion, Reward, Folgezustand) gespeichert. Am Spielende werden die Q-Werte aller Züge rückwärts aktualisiert, wodurch der Endreward durch die gesamte Zugsequenz propagiert wird.
 
-Die optimalen \textbf{Hyperparameter} nach empirischer Evaluation (Grid-Search über 64 Kombinationen) sind:
+Die optimalen Hyperparameter nach empirischer Evaluation (Grid-Search über 64 Kombinationen) sind:
 
 \begin{table}[H]
 \centering
@@ -312,19 +314,7 @@ Nach Training (100k) & 1.760 & 214 & 26 & \textbf{88,0\%} \\
 \caption{Ergebnisse vor und nach dem Training (2.000 Testspiele)}
 \end{table}
 
-Im Vergleich zum neuronalen Netzwerk zeigt sich tabellarisches Q-Learning als deutlich effizienter:
-
-\begin{table}[H]
-\centering
-\begin{tabular}{l|r|r|l}
-\textbf{Metrik} & \textbf{Q-Learning} & \textbf{Neural Network} & \textbf{Verhältnis} \\
-\hline
-Trainingszeit & 0,22s & 153,32s & 697$\times$ langsamer \\
-Siegrate & 88,0\% & 79,0\% & NN schlechter \\
-Code-Zeilen & $\sim$500 & $\sim$1.140 & 2,3$\times$ mehr \\
-\end{tabular}
-\caption{Vergleich Q-Learning vs. Neural Network (jeweils 100.000 Episoden)}
-\end{table}
+Der Vergleich zum neuronalen Netzwerk (siehe Tabelle 3 in Abschnitt 2.3.2) bestätigt, dass tabellarisches Q-Learning für dieses Problem deutlich effizienter ist.
 
 \subsection{Festgestellte Probleme und Lösungen}
 
